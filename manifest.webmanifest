@@ -1,7 +1,9 @@
 {
+  "id": "./",
   "name": "Answerer",
   "short_name": "Answerer",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
