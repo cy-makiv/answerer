@@ -230,10 +230,17 @@ async function ask(dataUrl) {
   try {
     const res = await fetch("/api/answer", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Access-Code": getCode() },
       body: JSON.stringify({ image: dataUrl }),
       signal: ctrl.signal,
     });
+    if (res.status === 401) {
+      clearCode();
+      sheet.hidden = true;
+      document.body.classList.remove("answering");
+      showLock("The access code is missing or has changed. Enter it, then take the photo again.");
+      return;
+    }
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error || `Server error (${res.status})`);
@@ -264,6 +271,60 @@ async function ask(dataUrl) {
   }
 }
 
-// Open the connection to our server early so the first answer doesn't pay for it.
-fetch("/api/health").catch(() => {});
+// ---------- Access code ----------
+
+const CODE_KEY = "answerer.accessCode";
+const lock = $("lock");
+const codeInput = $("code");
+const lockError = $("lock-error");
+const unlockBtn = $("unlock");
+
+function getCode() {
+  try { return localStorage.getItem(CODE_KEY) || ""; } catch { return ""; }
+}
+function saveCode(code) {
+  try { localStorage.setItem(CODE_KEY, code); } catch {}
+}
+function clearCode() {
+  try { localStorage.removeItem(CODE_KEY); } catch {}
+}
+
+function showLock(message = "") {
+  lockError.textContent = message;
+  lock.hidden = false;
+  codeInput.value = "";
+  setTimeout(() => codeInput.focus(), 50);
+}
+
+lock.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const code = codeInput.value.trim();
+  if (!code) return;
+  unlockBtn.disabled = true;
+  lockError.textContent = "";
+  try {
+    const res = await fetch("/api/unlock", { method: "POST", headers: { "X-Access-Code": code } });
+    if (res.ok) {
+      saveCode(code);
+      lock.hidden = true;
+      codeInput.blur();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      lockError.textContent = body.error || `Server error (${res.status})`;
+      codeInput.select();
+    }
+  } catch {
+    lockError.textContent = "Couldn't reach the server. Check your connection.";
+  } finally {
+    unlockBtn.disabled = false;
+  }
+});
+
+// This also opens the connection to our server early, so the first answer doesn't pay for it.
+fetch("/api/health")
+  .then((r) => r.json())
+  .then((h) => {
+    if (h.codeRequired && !getCode()) showLock();
+  })
+  .catch(() => {});
 startCamera();

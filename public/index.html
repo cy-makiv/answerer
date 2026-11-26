@@ -50,6 +50,15 @@
       </button>
     </div>
 
+    <form id="lock" hidden autocomplete="on">
+      <h1>Enter access code</h1>
+      <p>You only need to do this once on this phone.</p>
+      <input id="code" type="password" name="password" autocomplete="current-password"
+             inputmode="text" autocapitalize="off" spellcheck="false" placeholder="Access code" required />
+      <p id="lock-error" role="alert"></p>
+      <button id="unlock" type="submit">Unlock</button>
+    </form>
+
     <canvas id="canvas" hidden></canvas>
   </main>
   <script src="app.js"></script>

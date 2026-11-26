@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
@@ -31,15 +32,59 @@ Rules:
 
 const MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
+// Access code: when set, every answer request must carry it, so a leaked link can't spend your API credits.
+const ACCESS_CODE = (process.env.ANSWERER_ACCESS_CODE || "").trim();
+const sha256 = (s) => crypto.createHash("sha256").update(s).digest();
+const ACCESS_CODE_HASH = ACCESS_CODE ? sha256(ACCESS_CODE) : null;
+
+// Slow down guessing: at most MAX_FAILS wrong codes per IP per window.
+const FAIL_WINDOW_MS = 15 * 60_000;
+const MAX_FAILS = 10;
+const failures = new Map(); // ip -> { count, resetAt }
+
+function codeMatches(code) {
+  return typeof code === "string" && crypto.timingSafeEqual(sha256(code.trim()), ACCESS_CODE_HASH);
+}
+
+function requireAccessCode(req, res, next) {
+  if (!ACCESS_CODE_HASH) return next();
+  const now = Date.now();
+  let entry = failures.get(req.ip);
+  if (entry && entry.resetAt <= now) {
+    failures.delete(req.ip);
+    entry = undefined;
+  }
+  if (entry && entry.count >= MAX_FAILS) {
+    res.setHeader("Retry-After", Math.ceil((entry.resetAt - now) / 1000));
+    res.status(429).json({ error: "Too many wrong codes. Try again in a few minutes." });
+    return;
+  }
+  if (codeMatches(req.get("x-access-code"))) return next();
+  if (!entry) failures.set(req.ip, (entry = { count: 0, resetAt: now + FAIL_WINDOW_MS }));
+  entry.count++;
+  res.status(401).json({ error: "Wrong access code.", codeRequired: true });
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, e] of failures) if (e.resetAt <= now) failures.delete(ip);
+}, FAIL_WINDOW_MS).unref();
+
 const client = new Anthropic({ maxRetries: 1 });
 
 const app = express();
 app.disable("x-powered-by");
-app.use(express.json({ limit: "10mb" }));
+// Behind one proxy (Render, Railway, a tunnel), so req.ip is the phone's address, not the proxy's.
+app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 app.use(express.static(path.join(here, "public"), { maxAge: "1h" }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, model: MODEL, effort: EFFORT, fastMode: FAST_MODE });
+  res.json({ ok: true, codeRequired: Boolean(ACCESS_CODE_HASH) });
+});
+
+// Lets the phone check a code once, before the first photo, instead of failing mid-question.
+app.post("/api/unlock", requireAccessCode, (_req, res) => {
+  res.status(204).end();
 });
 
 function parseImage(body) {
@@ -71,7 +116,8 @@ function startStream(image, speed) {
   });
 }
 
-app.post("/api/answer", async (req, res) => {
+// Check the code before reading the (up to 10 MB) body.
+app.post("/api/answer", requireAccessCode, express.json({ limit: "10mb" }), async (req, res) => {
   const image = parseImage(req.body);
   if (!image) {
     res.status(400).json({ error: "Send { image: 'data:image/jpeg;base64,...' }" });
@@ -158,4 +204,7 @@ server.keepAliveTimeout = 65_000;
 server.listen(PORT, () => {
   const scheme = server instanceof https.Server ? "https" : "http";
   console.log(`Answerer on ${scheme}://localhost:${PORT}  (model ${MODEL}, effort ${EFFORT}, fast mode ${FAST_MODE ? "on" : "off"})`);
+  if (!ACCESS_CODE_HASH) {
+    console.warn("Warning: no ANSWERER_ACCESS_CODE set - anyone with the link can use your API key.");
+  }
 });

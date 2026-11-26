@@ -15,6 +15,7 @@ Needs Node 18+ and an Anthropic API key.
 ```bash
 npm install
 export ANTHROPIC_API_KEY=sk-ant-...
+export ANSWERER_ACCESS_CODE=pick-your-own-code
 npm start            # http://localhost:3000
 ```
 
@@ -25,7 +26,7 @@ Phone browsers only allow live camera access on **HTTPS** (or `localhost`). Choo
 1. **Tunnel (easiest):** `npx cloudflared tunnel --url http://localhost:3000` (or `ngrok http 3000`), then open the `https://` URL on your phone.
 2. **Local HTTPS:** create a certificate for your computer's LAN IP with [mkcert](https://github.com/FiloSottile/mkcert), then run
    `HTTPS_KEY=key.pem HTTPS_CERT=cert.pem npm start` and open `https://<your-lan-ip>:3000`.
-3. **Deploy** it to any Node host (Render, Railway, Fly.io, …). Set `ANTHROPIC_API_KEY` there.
+3. **Deploy** it to any Node host (Render, Railway, Fly.io, …). Set `ANTHROPIC_API_KEY` and `ANSWERER_ACCESS_CODE` there.
 
 Over plain `http://` on your LAN the page still works, but only through the photo button.
 
@@ -35,10 +36,12 @@ Over plain `http://` on your LAN the page still works, but only through the phot
 |---|---|---|
 | `ANTHROPIC_API_KEY` | – | Required. |
 | `PORT` | `3000` | Port to listen on. |
+| `ANSWERER_ACCESS_CODE` | – | **Strongly recommended when the app is online.** Each phone has to enter this code once (it's remembered after that). Without it, anyone with the link can spend your API credits. Use something hard to guess, e.g. three random words. After 10 wrong tries from one address, that address is blocked for 15 minutes. |
 | `ANSWERER_MODEL` | `claude-opus-5-5` | Claude model to use. |
 | `ANSWERER_EFFORT` | `low` | How much the model thinks: `low`, `medium`, `high`, `xhigh`, `max`. `low` is fastest; raise it if hard math or logic questions come back wrong. |
 | `ANSWERER_FAST_MODE` | off | `1` turns on fast mode: up to ~2.5× faster output at **2× the token price** ($8 / $40 per million input/output tokens instead of $4 / $20). If fast mode is rate-limited, the request falls back to normal speed. |
 | `HTTPS_KEY`, `HTTPS_CERT` | – | Paths to a TLS key and certificate, to serve HTTPS directly. |
+| `TRUST_PROXY` | `1` | How many proxies sit in front of the app (Render, Railway and tunnels all have one). Set it to `0` when phones connect to the server directly, so the wrong-code limit can't be bypassed with a forged header. |
 
 ## How it's built
 
