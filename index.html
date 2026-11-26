@@ -12,6 +12,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="modulepreload" href="vendor/anthropic-sdk.mjs" />
 </head>
 <body>
   <main id="app">
@@ -50,17 +51,35 @@
       </button>
     </div>
 
-    <form id="lock" hidden autocomplete="on">
-      <h1>Enter access code</h1>
-      <p>You only need to do this once on this phone.</p>
-      <input id="code" type="password" name="password" autocomplete="current-password"
-             inputmode="text" autocapitalize="off" spellcheck="false" placeholder="Access code" required />
-      <p id="lock-error" role="alert"></p>
-      <button id="unlock" type="submit">Unlock</button>
+    <button id="open-settings" type="button" title="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+      <span class="sr">Settings</span>
+    </button>
+
+    <form id="settings" hidden autocomplete="off">
+      <h1>Settings</h1>
+      <label for="api-key">Anthropic API key</label>
+      <input id="api-key" type="password" autocapitalize="off" spellcheck="false" placeholder="sk-ant-..." required />
+      <p class="note">Saved only on this phone, and sent only to Anthropic. Get one at console.anthropic.com.</p>
+
+      <label for="effort">Thinking</label>
+      <select id="effort">
+        <option value="low">Low: fastest (recommended)</option>
+        <option value="medium">Medium: better at hard math</option>
+        <option value="high">High: slowest, most careful</option>
+      </select>
+
+      <label class="check"><input id="fast" type="checkbox" /> Fast mode: answers write out up to ~2.5× faster, at 2× the price</label>
+
+      <p id="settings-error" role="alert"></p>
+      <div class="row">
+        <button id="cancel" type="button" class="secondary">Cancel</button>
+        <button id="save" type="submit">Save</button>
+      </div>
     </form>
 
     <canvas id="canvas" hidden></canvas>
   </main>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

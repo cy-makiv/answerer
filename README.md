@@ -2,50 +2,46 @@
 
 Point your phone camera at a question, tap, and get the answer in seconds.
 
+The whole app is a few static files (HTML, CSS, JavaScript). There's no server. Your phone sends the photo straight to Claude using your own Anthropic API key, which is saved only on your phone.
+
 - Live rear-camera view with a framing guide. Tap the shutter (or anywhere on the picture).
 - Only the area inside the frame is sent, resized to at most 1280px. Fewer pixels means fewer tokens and a faster answer.
 - The answer streams in as it is written. It starts with the answer itself, then a short explanation.
-- No live camera (no HTTPS, or permission denied)? The camera button opens the phone's own camera or photo picker instead.
 - The screen shows how long the answer took: time to the first word, and time until it finished.
+- If live camera access isn't available, the camera button opens the phone's own camera or photo picker instead.
 
-## Run it
+## Put it on your phone with GitHub Pages
 
-Needs Node 18+ and an Anthropic API key.
+1. **Make sure Pages is available for this repo.** GitHub Pages is free for **public** repos. A **private** repo needs a paid GitHub plan (Pro, Team or Enterprise). The code holds no secrets, so making the repo public is safe. Either way, the Pages site itself is public: anyone with the link can open the page, but it does nothing without an API key.
+2. In the repo on GitHub, go to **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, pick the branch that has this code and the **/ (root)** folder, then click **Save**.
+3. After a minute or so, Pages shows your link: `https://<your-username>.github.io/answerer/`.
+4. Open that link on your phone:
+   - **iPhone:** in Safari, tap **Share → Add to Home Screen**.
+   - **Android:** in Chrome, tap **⋮ → Add to Home screen** (or **Install app**).
+5. Open the app from the home screen, paste your API key into Settings, then tap **Allow** when it asks for the camera.
+
+### Use a dedicated API key
+
+Create a separate key for this app at [console.anthropic.com](https://console.anthropic.com) and set a monthly spend limit on it. The key is stored in your phone's browser storage, so anyone who can unlock your phone could get to it. If that ever happens, you can delete this one key without affecting anything else.
+
+## Run it only on your own computer (nothing online)
 
 ```bash
-npm install
-export ANTHROPIC_API_KEY=sk-ant-...
-export ANSWERER_ACCESS_CODE=pick-your-own-code
-npm start            # http://localhost:3000
+npm start        # serves the folder on http://localhost:8080
 ```
 
-### Opening it on your phone
+Open `http://<your-computer's-LAN-IP>:8080` on your phone while it's on the same Wi-Fi. Phones only allow the live camera view on HTTPS, so over plain http you use the camera button. It opens the phone's camera app: take the photo and the answer comes back the same way.
 
-Phone browsers only allow live camera access on **HTTPS** (or `localhost`). Choose one:
+## Settings (on the phone, gear icon)
 
-1. **Tunnel (easiest):** `npx cloudflared tunnel --url http://localhost:3000` (or `ngrok http 3000`), then open the `https://` URL on your phone.
-2. **Local HTTPS:** create a certificate for your computer's LAN IP with [mkcert](https://github.com/FiloSottile/mkcert), then run
-   `HTTPS_KEY=key.pem HTTPS_CERT=cert.pem npm start` and open `https://<your-lan-ip>:3000`.
-3. **Deploy** it to any Node host (Render, Railway, Fly.io, …). Set `ANTHROPIC_API_KEY` and `ANSWERER_ACCESS_CODE` there.
-
-Over plain `http://` on your LAN the page still works, but only through the photo button.
-
-## Settings (environment variables)
-
-| Variable | Default | What it does |
+| Setting | Default | What it does |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | – | Required. |
-| `PORT` | `3000` | Port to listen on. |
-| `ANSWERER_ACCESS_CODE` | – | **Strongly recommended when the app is online.** Each phone has to enter this code once (it's remembered after that). Without it, anyone with the link can spend your API credits. Use something hard to guess, e.g. three random words. After 10 wrong tries from one address, that address is blocked for 15 minutes. |
-| `ANSWERER_MODEL` | `claude-opus-5-5` | Claude model to use. |
-| `ANSWERER_EFFORT` | `low` | How much the model thinks: `low`, `medium`, `high`, `xhigh`, `max`. `low` is fastest; raise it if hard math or logic questions come back wrong. |
-| `ANSWERER_FAST_MODE` | off | `1` turns on fast mode: up to ~2.5× faster output at **2× the token price** ($8 / $40 per million input/output tokens instead of $4 / $20). If fast mode is rate-limited, the request falls back to normal speed. |
-| `HTTPS_KEY`, `HTTPS_CERT` | – | Paths to a TLS key and certificate, to serve HTTPS directly. |
-| `TRUST_PROXY` | `1` | How many proxies sit in front of the app (Render, Railway and tunnels all have one). Set it to `0` when phones connect to the server directly, so the wrong-code limit can't be bypassed with a forged header. |
+| API key | – | Your Anthropic API key. Checked when you save it. |
+| Thinking | Low | How much Claude thinks before answering. Low is fastest. Medium is better at hard math. |
+| Fast mode | Off | Answers write out up to ~2.5× faster, but cost **2× as much** ($8 / $40 per million input/output tokens instead of $4 / $20). If fast mode is busy, the request falls back to normal speed. |
 
 ## How it's built
 
-- `server.js`: an Express server. `POST /api/answer` takes `{ image: "data:image/jpeg;base64,..." }` and streams back NDJSON lines (`{"t": "..."}` text chunks, then `{"done": true}`, or `{"error": "..."}`). It calls the Claude Messages API through the official `@anthropic-ai/sdk` with streaming, low effort and a short-answer system prompt. It also turns on server-side refusal fallback (`fallbacks: "default"`): if the model declines a request, the API runs it again on a fallback model in the same stream.
-- `public/`: the phone UI, in plain HTML, CSS and JavaScript with no build step.
-
-The server logs time to first token, total time and token counts for each answer.
+- `index.html`, `style.css`, `app.js`: the app, with no build step.
+- `vendor/anthropic-sdk.mjs`: the official `@anthropic-ai/sdk`, bundled for the browser. Rebuild it with `npm install && npm run build:vendor`.
+- Requests use Claude Opus 5.5 with streaming, low effort by default, and a short-answer system prompt. They also turn on server-side refusal fallback (`fallbacks: "default"`): if the model declines a request, the API runs it again on a fallback model in the same stream.

@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Point your phone camera at a question and get the answer fast",
   "scripts": {
-    "start": "node server.js"
+    "start": "npx --yes serve@14.2.4 -l 8080 .",
+    "build:vendor": "esbuild scripts/sdk-entry.mjs --bundle --format=esm --platform=browser --minify --legal-comments=eof --outfile=vendor/anthropic-sdk.mjs"
   },
   "repository": {
     "type": "git",
@@ -13,12 +14,8 @@
     "url": "https://github.com/cy-makiv/answerer/issues"
   },
   "homepage": "https://github.com/cy-makiv/answerer#readme",
-  "type": "module",
-  "dependencies": {
+  "devDependencies": {
     "@anthropic-ai/sdk": "^1.14.0",
-    "express": "^5.3.0"
-  },
-  "engines": {
-    "node": ">=18"
+    "esbuild": "^0.25.0"
   }
 }
