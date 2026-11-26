@@ -5,6 +5,7 @@ Point your phone camera at a question, tap, and get the answer in seconds.
 The whole app is a few static files (HTML, CSS, JavaScript). There's no server. Your phone sends the photo straight to Claude using your own Anthropic API key, which is saved only on your phone.
 
 - Live rear-camera view with a framing guide. Tap the shutter (or anywhere on the picture).
+- Zoom with a pinch or the 1× / 2× / 3× buttons. The camera's own zoom is used where the browser allows it, otherwise the zoom is digital. The zoomed view inside the frame is what gets sent.
 - Only the area inside the frame is sent, resized to at most 1280px. Fewer pixels means fewer tokens and a faster answer.
 - The answer streams in as it is written. It starts with the answer itself, then a short explanation.
 - The screen shows how long the answer took: time to the first word, and time until it finished.

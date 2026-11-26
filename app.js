@@ -43,8 +43,9 @@ async function startCamera() {
       audio: false,
       video: {
         facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        // Extra resolution keeps text sharp when zoomed in digitally.
+        width: { ideal: 2560 },
+        height: { ideal: 1440 },
       },
     });
     video.srcObject = stream;
@@ -56,6 +57,7 @@ async function startCamera() {
       track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
     }
     torchBtn.hidden = !caps.torch;
+    setupZoom(track, caps);
     track.addEventListener("ended", () => { stream = null; });
   } catch (err) {
     const denied = err?.name === "NotAllowedError";
@@ -97,6 +99,116 @@ torchBtn.addEventListener("click", async () => {
     torchBtn.classList.toggle("on", torchOn);
   } catch {}
 });
+
+// ---------- Zoom ----------
+// Uses the camera's own zoom where the browser exposes it (sharper; may switch lenses),
+// otherwise zooms the preview digitally. Either way, the photo is the zoomed view inside the frame.
+
+const MAX_DIGITAL_ZOOM = 5;
+const zoomBar = $("zoom-bar");
+let zoom = 1;
+let hwZoom = null; // { track, min, max } when the camera supports real zoom
+let hwPending = null;
+let hwApplying = false;
+
+function zoomRange() {
+  return hwZoom ? { min: hwZoom.min, max: Math.min(hwZoom.max, 10) } : { min: 1, max: MAX_DIGITAL_ZOOM };
+}
+
+function setupZoom(track, caps) {
+  const z = caps.zoom;
+  hwZoom = z && z.max > z.min ? { track, min: z.min, max: z.max } : null;
+  video.style.transform = "";
+  setZoom(zoom);
+}
+
+function setZoom(value) {
+  const { min, max } = zoomRange();
+  zoom = clamp(value, min, max);
+  if (hwZoom) applyHardwareZoom(zoom);
+  else video.style.transform = zoom > 1.001 ? `scale(${zoom})` : "";
+  renderZoomBar();
+}
+
+// applyConstraints is async and slow on some phones: only ever run one, always with the latest value.
+async function applyHardwareZoom(value) {
+  hwPending = value;
+  if (hwApplying) return;
+  hwApplying = true;
+  while (hwPending !== null && hwZoom) {
+    const v = hwPending;
+    hwPending = null;
+    try {
+      await hwZoom.track.applyConstraints({ advanced: [{ zoom: v }] });
+    } catch {
+      hwZoom = null; // camera refused: fall back to digital zoom
+      setZoom(v);
+    }
+  }
+  hwApplying = false;
+}
+
+const fmtZoom = (z) => `${Number(z.toFixed(1))}×`;
+
+function renderZoomBar() {
+  const { min, max } = zoomRange();
+  const presets = [min < 0.95 ? min : null, 1, 2, 3].filter((p) => p !== null && p >= min - 0.01 && p <= max + 0.01);
+  // The active button is the largest preset at or below the current zoom, and shows the exact value.
+  const active = presets.filter((p) => p <= zoom + 0.01).pop() ?? presets[0];
+  if (zoomBar.childElementCount !== presets.length) {
+    zoomBar.replaceChildren(
+      ...presets.map((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.zoom = p;
+        b.addEventListener("click", () => setZoom(p));
+        return b;
+      }),
+    );
+  }
+  for (const b of zoomBar.children) {
+    const p = Number(b.dataset.zoom);
+    const isActive = p === active;
+    b.classList.toggle("active", isActive);
+    b.textContent = isActive ? fmtZoom(zoom) : fmtZoom(p);
+    b.setAttribute("aria-label", `Zoom ${fmtZoom(p)}`);
+  }
+}
+
+// Pinch to zoom on the camera view.
+const pointers = new Map();
+let pinchStart = null;
+let suppressTapUntil = 0;
+const pointerDistance = () => {
+  const [a, b] = [...pointers.values()];
+  return Math.hypot(a.x - b.x, a.y - b.y);
+};
+
+video.addEventListener("pointerdown", (e) => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) pinchStart = { dist: pointerDistance(), zoom };
+});
+video.addEventListener("pointermove", (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2 && pinchStart?.dist > 0) {
+    setZoom(pinchStart.zoom * (pointerDistance() / pinchStart.dist));
+    suppressTapUntil = performance.now() + 500; // a pinch must not also take a photo
+  }
+});
+const endPointer = (e) => {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStart = null;
+};
+video.addEventListener("pointerup", endPointer);
+video.addEventListener("pointercancel", endPointer);
+// Stop iOS Safari zooming the whole page on pinch.
+document.addEventListener("gesturestart", (e) => e.preventDefault());
+// Mouse wheel / trackpad zoom when testing on a computer.
+video.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  setZoom(zoom * Math.exp(-e.deltaY * 0.002));
+}, { passive: false });
 
 // ---------- Capture ----------
 
@@ -158,7 +270,9 @@ function flash() {
 
 shutter.addEventListener("click", onShutter);
 // Tapping anywhere on the camera view also captures - a bigger target is faster.
-video.addEventListener("click", onShutter);
+video.addEventListener("click", () => {
+  if (pointers.size === 0 && performance.now() > suppressTapUntil) onShutter();
+});
 frozen.addEventListener("click", onShutter);
 document.addEventListener("keydown", (e) => {
   if ((e.code === "Space" || e.code === "Enter") && e.target === document.body) {
@@ -230,6 +344,14 @@ function showSettings(message = "") {
 }
 
 $("open-settings").addEventListener("click", () => showSettings());
+
+$("close-sheet").addEventListener("click", () => {
+  current?.stream?.abort();
+  current = null;
+  sheet.hidden = true;
+  frozen.hidden = true;
+  document.body.classList.remove("busy", "answering");
+});
 cancelBtn.addEventListener("click", () => { settingsForm.hidden = true; });
 
 settingsForm.addEventListener("submit", async (e) => {

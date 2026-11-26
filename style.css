@@ -20,7 +20,8 @@ html, body {
   overscroll-behavior: none;
 }
 
-#app { position: fixed; inset: 0; }
+#app { position: fixed; inset: 0; overflow: hidden; }
+#video { touch-action: none; transform-origin: center; }
 
 #video, #frozen {
   position: absolute;
@@ -113,13 +114,52 @@ body.answering #hint { display: none; }
 
 .sheet-head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  gap: 10px;
+  align-items: center;
   font-size: 13px;
   color: var(--muted);
   margin-bottom: 6px;
 }
 #status.error { color: var(--error); }
+#timing { margin-left: auto; }
+#close-sheet {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #2a2a2e;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Zoom presets, like a phone's camera app */
+#zoom-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(118px + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 2;
+}
+#zoom-bar:empty, body.answering #zoom-bar { display: none; }
+#zoom-bar button {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(40, 40, 40, 0.8);
+  color: #fff;
+  font: 600 13px system-ui, sans-serif;
+  cursor: pointer;
+}
+#zoom-bar button.active { color: #facc15; font-size: 14px; }
 
 #answer {
   white-space: pre-wrap;

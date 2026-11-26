@@ -23,7 +23,8 @@
       <span class="corner tl"></span><span class="corner tr"></span>
       <span class="corner bl"></span><span class="corner br"></span>
     </div>
-    <p id="hint">Fit the question inside the frame, then tap</p>
+    <p id="hint">Fit the question inside the frame, then tap · pinch to zoom</p>
+    <div id="zoom-bar" role="group" aria-label="Zoom"></div>
 
     <div id="camera-error" hidden>
       <p id="camera-error-text">Camera unavailable.</p>
@@ -34,6 +35,7 @@
       <div class="sheet-head">
         <span id="status">Reading…</span>
         <span id="timing"></span>
+        <button id="close-sheet" type="button" aria-label="Close answer">✕</button>
       </div>
       <div id="answer"></div>
     </section>
