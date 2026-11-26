@@ -1,0 +1,24 @@
+{
+  "name": "answerer",
+  "version": "1.0.0",
+  "description": "Point your phone camera at a question and get the answer fast",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cy-makiv/answerer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cy-makiv/answerer/issues"
+  },
+  "homepage": "https://github.com/cy-makiv/answerer#readme",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "express": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
